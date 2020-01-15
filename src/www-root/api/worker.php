@@ -118,18 +118,37 @@ while(true){
             3: duration
           */
 
+          $found = 0;
+
           if($std == 0){
-            // success
-            echo "finished getting data (url: ".$url.")\n";
-            // update to progress 1
-            $stmt_sec = $db->prepare("UPDATE queue SET title = :title, videoid = :videoid, thumbnail = :thumbnail, duration = :duration, progress = 2 WHERE id = :id");
-            $stmt_sec->execute(array(
-              ":id"=>$id,
-              ":title"=>$out[0],
-              ":videoid"=>$out[1],
-              ":thumbnail"=>$out[2],
-              ":duration"=>$out[3]
-            ));
+
+            // check if this song is already in songs or in the queue
+            $stmt_sec = $db->prepare("SELECT id FROM songs WHERE file = :file");
+            if($stmt_sec->execute(array(":file" => $out[1].".mp3"))){
+              $found += $stmt_sec->rowCount();
+            }
+
+            // check if this song is already in songs or in the queue
+            $stmt_sec = $db->prepare("SELECT id FROM queue WHERE videoid = :videoid AND id != :id");
+            if($stmt_sec->execute(array(":videoid" => $out[1], ":id" => $id))){
+              $found += $stmt_sec->rowCount();
+            }
+
+            if($found == 0){
+              echo "finished getting data (url: ".$url.")\n";
+              // update to progress 1
+              $stmt_sec = $db->prepare("UPDATE queue SET title = :title, videoid = :videoid, thumbnail = :thumbnail, duration = :duration, progress = 2 WHERE id = :id");
+              $stmt_sec->execute(array(
+                ":id"=>$id,
+                ":title"=>$out[0],
+                ":videoid"=>$out[1],
+                ":thumbnail"=>$out[2],
+                ":duration"=>$out[3]
+              ));
+            }else{
+              $stmt_sec = $db->prepare("DELETE FROM queue WHERE id = :id");
+              $stmt_sec->execute(array(":id" => $id));
+            }            
 
           }else{
             echo "Error getting data (url: ".$url.") (".json_encode($out).")\n";
