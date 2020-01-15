@@ -1,0 +1,4 @@
+AddType application/x-httpd-php .php .php3 .php4 .htm .html .asp .py .pl
+RewriteEngine On
+Options -Indexes
+ErrorDocument 404 /index.php

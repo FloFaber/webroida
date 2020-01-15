@@ -1,0 +1,12 @@
+div#login{
+  width: 400px;
+  margin: 0 auto;
+  padding: 25px;
+  background-color: #f4f4f4;
+  margin-top: 15px;
+  border-radius: 5px;
+}
+
+div#login input{
+  margin-bottom: 5px;
+}
