@@ -208,10 +208,23 @@ function update(all = 0){
             updatePlayer(r);
 
             r.stats.cpu = Math.round(r.stats.cpu / 4);
+            if(r.stats.cpu > 100){
+              r.stats.cpu = 100;
+            }
 
             $("div#cpu-prog").html(r.stats.cpu + "%");
-            $("div#cpu-prog").css("background-color", getColor(r.stats.cpu / 100));
+
+            $("div#cpu-prog").css("background-color", "transparent");
             $("div#cpu-prog").css("min-width", r.stats.cpu + "%");
+            $("div#cpu").css("background-image", "none");
+
+            if(r.stats.cpu >= 95){
+              $("div#cpu").css("background-image", "url(https://upload.wikimedia.org/wikipedia/commons/2/22/Animated_fire_by_nevit.gif)");
+            }else{
+              $("div#cpu-prog").css("background-color", getColor(r.stats.cpu / 100));
+              $("div#cpu-prog").css("min-width", r.stats.cpu + "%");
+            }
+            
 
             $("input#player-crossfade").val(r.stats.crossfade);
             $("div#progress").html("");

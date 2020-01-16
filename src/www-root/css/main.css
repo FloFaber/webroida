@@ -443,6 +443,9 @@ div#cpu{
   bottom: 0;
   background-color: var(--dark);
   width: 100%;
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0px -2px 3px 0px var(--grey-dark);
 }
 
 div#cpu-prog{
