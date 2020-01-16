@@ -226,7 +226,7 @@ class Webroida{
 
   // function to delete a song from queue
   function delQueue($id){
-    $stmt = $this->db->prepare("DELETE FROM queue WHERE id = :id AND (progress <> 2 OR (progress = 2 AND title LIKE 'ERROR%'))");
+    $stmt = $this->db->prepare("DELETE FROM queue WHERE id = :id AND (progress <> 3 OR (progress = 3 AND title LIKE 'ERROR%'))");
     if($stmt->execute(array(":id"=>$id))){
       return array("success"=>true, "msg"=>null);
     }else{

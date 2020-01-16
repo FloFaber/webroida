@@ -62,23 +62,25 @@ while(true){
             echo "finished downloading (videoid: ".$videoid.")\n";
             // add into songs table
             $stmt_sec = $db->prepare("INSERT INTO songs (title, url, file, duration, thumbnail) VALUES (:title, :url, :file, :duration, :thumbnail)");
-            $stmt_sec->execute(array(
+            if($stmt_sec->execute(array(
               ":title"=>$title,
               ":url"=>$url,
               ":file"=>$videoid.".mp3",
               ":duration"=>$duration,
               ":thumbnail"=>$thumbnail
-            ));
+            ))){
+              // now add to playlist
+              file_put_contents("/mpd/playlists/songs.m3u", $videoid.".mp3\n", FILE_APPEND);
+              $wr->updateDB();
+              if(endsWith($wr->playing()["current_raw"], ".mp3")){
+                $wr->add($videoid.".mp3");
+              }
+            }
     
             $stmt_sec = $db->prepare("DELETE FROM queue WHERE id = :id");
             $stmt_sec->execute(array(":id"=>$id));
 
-            // now add to playlist
-            file_put_contents("/mpd/playlists/songs.m3u", $videoid.".mp3\n", FILE_APPEND);
-            $wr->updateDB();
-            if(endsWith($wr->playing()["current_raw"], ".mp3")){
-              $wr->add($videoid.".mp3");
-            }
+            
 
     
           }else{
