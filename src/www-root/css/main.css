@@ -453,3 +453,23 @@ div#cpu-prog{
   font-weight: bold;
   max-width: 100%;
 }
+
+div.key-container{
+  display: flex;
+  align-items: center;
+  margin-top: 5px;
+  text-transform: capitalize;
+}
+
+span.key{
+  background-color: white;
+  height: 40px;
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  border: 2px solid black;
+  font-weight: bold;
+  margin-right: 10px;
+}

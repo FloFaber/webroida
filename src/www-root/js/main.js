@@ -25,6 +25,7 @@ $(document).ready(function(){
             <div class="sb-top">Webroida 2<i class="fa fa-music" aria-hidden="true"></i></div>
             <div class="sb-item"><a class="text-light" href="/">Webradio</a></div>
             <div class="sb-item"><a class="text-light" href="/yt">YouTube</a></div>
+            <div class="sb-item"><a class="text-light" href="/sc">Shortcuts</a></div>
             `+(p.user.admin ? `
             <div class="sb-item"><a class="text-light" href="/users">Userverwaltung</a></div>
             <div class="sb-item"><a class="text-light" href="/system">System</a></div>
@@ -83,6 +84,7 @@ $(document).ready(function(){
           }else if(e.key == "y"){
             $("a[href='/yt']").click();
           }
+          return false;
         }
       })
 
@@ -400,10 +402,13 @@ setInterval(function(){
 
 function fetch(url){
 
+  $("div#content").css("display", "flex");
   if(url == "" || url == "/"){
     $("div#content").css("padding-right", "");
   }else if(url == "/yt"){
     $("div#content").css("padding-right", "0");
+  }else if(url == "/sc"){
+    $("div#content").css("display", "block");
   }
 
   $("div.sb-item").css("border-left", "5px solid transparent");
@@ -778,6 +783,20 @@ function fetch(url){
       }
     })
 
+  }else if(url == "/sc"){
+    $("div#content").html(`
+      <h2>Keyboard Shortcuts</h2>
+      <div class="key-container"><span class="key">A</span>prev</div>
+      <div class="key-container"><span class="key">D</span>next</div>
+      <div class="key-container"><span class="key">[ ]</span>pause</div>
+      <div class="key-container"><span class="key">S</span>stop</div>
+      <div class="key-container"><span class="key">+</span>lauter</div>
+      <div class="key-container"><span class="key">-</span>leiser</div>
+      <div class="key-container"><span class="key">Y</span>YouTube</div>
+      <div class="key-container"><span class="key">W</span>Webradio</div>
+    `);
+  }else{
+    $("div#content").html("<h1>404</h1>");
   }
 }
 
