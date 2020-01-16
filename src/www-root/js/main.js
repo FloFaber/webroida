@@ -207,10 +207,13 @@ function update(){
             appendQueue(r.queue[i]);
           }
   
-          $("div#songs").html("");
-          for(var i = 0; i < r.songs.length; i++){
-            appendSong(r.songs[i]);
+          if($("input#search").val() == ""){
+            $("div#songs").html("");
+            for(var i = 0; i < r.songs.length; i++){
+              appendSong(r.songs[i]);
+            }
           }
+          
 
           $("span#qcount").html(r.songs.length);
 
@@ -343,7 +346,7 @@ function update(){
 }
 setInterval(function(){
   update();
-}, 5000);
+}, 3000);
 
 
 function fetch(url){
@@ -409,7 +412,13 @@ function fetch(url){
 
     $("div#content").html(`
       <div id="list-queue" class="w-49">
-        <div class="list-top"><h2>Q (<span id='qcount'>0</span>)<button class="btn btn-sm btn-danger ml-2 q-btn" id="clearq">Clear</button><button class="btn btn-sm btn-success ml-2 q-btn" id="shuffleq">Shuffle</button></h2></div>
+        <div class="list-top">
+          <h2>Q (<span id='qcount'>0</span>)
+            <button class="btn btn-sm btn-danger ml-2 q-btn" id="clearq">Clear</button>
+            <button class="btn btn-sm btn-success ml-2 q-btn" id="shuffleq">Shuffle</button>
+            <input type="text" class="form-control" id="search" placeholder="Suchen"/>
+          </h2>
+        </div>
         <div id="songs"></div>
       </div>
 
@@ -433,8 +442,32 @@ function fetch(url){
           <div id="progress"></div>
         </div>
       </div>
-
     `);
+
+    // search songs
+    $("input#search").on("keyup", function(){
+      searchSong($(this).val());
+    });
+
+    function searchSong(str = ""){
+      if(str != ""){
+        $.ajax({
+          url: p.api,
+          type: "GET",
+          data: { "action": "song", "type": "search", "keyword": str },
+          success: function(r){
+            if(r.success){
+              $("div#songs").html("");
+              for(var i = 0; i < r.songs.length; i++){
+                appendSong(r.songs[i]);
+              }
+            }
+          }
+        });
+      }else{
+        update();
+      }
+    }
 
     // clear and shuffle q
     $("button.q-btn").on("click", function(){

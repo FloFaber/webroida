@@ -6,9 +6,9 @@ class Webroida{
 
   private $db;
   private $db_host = "localhost";
-  private $db_user;
-  private $db_name;
-  private $db_pass;
+  private $db_user = "webroida";
+  private $db_name = "webroida";
+  private $db_pass = "QjqXDnSBEeEShSzRag3F7bzC";
 
   public $volume;
   public $time;
@@ -17,11 +17,6 @@ class Webroida{
 
   // on construct connect to DB
   function __construct(){
-
-    $this->db_user = trim(file_get_contents("/etc/webroida/db.name"));
-    $this->db_name = trim(file_get_contents("/etc/webroida/db.name"));
-    $this->db_pass = trim(file_get_contents("/etc/webroida/db.pass"));
-
     try{
       $this->db = new PDO("mysql:host=".$this->db_host.";dbname=".$this->db_name, $this->db_user, $this->db_pass);
     }catch(PDOException $e){
@@ -283,6 +278,21 @@ class Webroida{
     error_log(json_encode($this->playlist()));
     if($line){
       shell_exec("mpc play ".$line);
+    }
+  }
+
+
+  // function to search songs
+  function searchSong($keyword){
+    $songs = array();
+    $stmt = $this->db->prepare("SELECT * FROM songs WHERE title LIKE :keyword");
+    if($stmt->execute(array(":keyword" => "%".$keyword."%"))){
+      while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
+        array_push($songs, array("id"=>$row["id"], "title"=>$row["title"], "url"=>$row["url"], "file"=>$row["file"], "duration"=>$row["duration"], "thumbnail"=>$row["thumbnail"]));
+      }
+      return array("success" => true, "msg" => null, "songs" => $songs);
+    }else{
+      return array("success" => false, "msg" => "DB Error");
     }
   }
 

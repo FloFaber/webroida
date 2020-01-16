@@ -260,6 +260,15 @@ div#progress{
   margin-bottom: 75px;
 }
 
+input#search{
+  width: 40%;
+  float: right;
+  margin-right: 35px;
+  vertical-align: middle;
+  display: flex;
+  margin-top: 3px;
+}
+
 div.queue{
   padding: 15px;
   padding-right: 3px;

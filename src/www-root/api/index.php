@@ -142,6 +142,8 @@ if(isset($_REQUEST["action"]) and isset($_REQUEST["type"])){
           $r = $wr->moveSong($from, $to);
 
         }
+      }elseif($type == "search"){
+        $r = $wr->searchSong($_REQUEST["keyword"]);
       }
   
     }elseif($action == "user"){
