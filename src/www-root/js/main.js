@@ -470,6 +470,31 @@ function fetch(url){
       }
     });
 
+    // search sender
+    $("input#search").on("keyup", function(){
+      searchSender($(this).val());
+    });
+
+    function searchSender(str = ""){
+      if(str != ""){
+        $.ajax({
+          url: p.api,
+          type: "GET",
+          data: { "action": "sender", "type": "search", "keyword": str },
+          success: function(r){
+            if(r.success){
+              $("div#senderlist").html("");
+              for(var i = 0; i < r.senders.length; i++){
+                appendSender(r.senders[i].name, r.senders[i].address);
+              }
+            }
+          }
+        });
+      }else{
+        update(1);
+      }
+    }
+
     // add sender
     $("form#sender-add").on("submit", function(){
 
