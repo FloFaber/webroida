@@ -114,9 +114,9 @@ else
   sudo chmod a+rx /usr/local/bin/youtube-dl
 
   # sudoers file so www-data can execute some little pretty restart commands
-  if grep -Fxq "www-data ALL=(root) NOPASSWD: /etc/init.d/webroida *, /etc/init.d/mpd restart, /usr/bin/amixer cset numid=3 *, /usr/bin/screen *" /etc/sudoers; then
+  if ! grep "www-data ALL=(root) NOPASSWD: /etc/init.d/webroida" /etc/sudoers; then
     sudoers="www-data ALL=(root) NOPASSWD: /etc/init.d/webroida *, /etc/init.d/mpd restart, /usr/bin/amixer cset numid=3 *, /usr/bin/screen *"
-    echo $sudoers >> /etc/sudoers
+    echo "$sudoers" >> /etc/sudoers
   fi
 
   /etc/init.d/webroida restart
