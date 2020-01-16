@@ -107,7 +107,7 @@ function moveLine($file, $from, $to){
   // insert source line into destination
 
   $file = array_insert($file, $to - 1, $sourceline);
-  error_log("moving line ".$from." to ".$to." | from: ".$sourceline." | TEXT: ".$file);
+  //error_log("moving line ".$from." to ".$to." | from: ".json_encode($sourceline)." | TEXT: ".json_encode($file));
 
   return implode("\n", $file);
 
@@ -204,4 +204,3 @@ function covtime($youtube_time){
   }
   return $time;
 }
-

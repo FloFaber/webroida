@@ -29,6 +29,7 @@ $(document).ready(function(){
             <div class="sb-item"><a class="text-light" href="/users">Userverwaltung</a></div>
             <div class="sb-item"><a class="text-light" href="/system">System</a></div>
             `: "")+`
+            <div id="cpu"><div id="cpu-prog" style="display: inline-block;"></div></div>
           </div>
           <div id="content"></div>
           <div id="player">
@@ -52,7 +53,6 @@ $(document).ready(function(){
               <span class="player-setting" id="player-single"><button class="btn btn-secondary mr-1"><i class="fa fa-repeat" aria-hidden="true"></i><span>1</span></button></span>
               <span class="player-setting" id="player-repeat"><button class="btn btn-secondary mr-1"><i class="fa fa-repeat" aria-hidden="true"></i><span>A</span></button></span>
               <span class="player-setting" id="player-random"><button class="btn btn-secondary mr-1"><i class="fa fa-random" aria-hidden="true"></i></button></span>
-              <!--<span class="player-setting" id="player-consume"><button class="btn btn-secondary"><i class="fa fa-eject" aria-hidden="true"></i></button></span>-->
             </div>
           </div>
         </div>
@@ -175,181 +175,223 @@ $(document).ready(function(){
           type: "POST",
           data: { "action": "player", "type": type },
           success: function(r){
-            update();
+            update(0);
           }
         });
       });
 
       fetch(window.location.pathname);
-      update();
+      update(1);
 
     }
   });
 });
 
 // update
-function update(){
+function update(all = 0){
   if(p.update){
     $.ajax({
       url: p.api,
       type: "GET",
-      data: { "action": "player", "type": "update" },
+      data: { "action": "player", "type": "update", "all": all },
       success: function(r){
 
-        $("input#player-crossfade").val(r.stats.crossfade);
+        //r.stats.current = escapeHtml(r.stats.current);
+        if(all != 2){
+          r.stats.playing.current = (typeof r.stats.playing.current !== "undefined" ? escapeHtml(r.stats.playing.current) : "");
+        }
 
-        r.stats.current = escapeHtml(r.stats.current);
-        r.stats.playing.current = (typeof r.stats.playing.current !== "undefined" ? escapeHtml(r.stats.playing.current) : "");
-  
         if(window.location.pathname == "/yt"){
-          $("div#progress").html("");
-          for(var i = 0; i < r.queue.length; i++){
-            appendQueue(r.queue[i]);
-          }
-  
-          if($("input#search").val() == ""){
-            $("div#songs").html("");
-            for(var i = 0; i < r.songs.length; i++){
-              appendSong(r.songs[i]);
+          // console.log(all);
+          if(all == 1){
+            updateSongs(r);
+            updatePlayer(r);
+
+            r.stats.cpu = Math.round(r.stats.cpu / 4);
+
+            $("div#cpu-prog").html(r.stats.cpu + "%");
+            $("div#cpu-prog").css("background-color", getColor(r.stats.cpu / 100));
+            $("div#cpu-prog").css("min-width", r.stats.cpu + "%");
+
+            $("input#player-crossfade").val(r.stats.crossfade);
+            $("div#progress").html("");
+            for(var i = 0; i < r.queue.length; i++){
+              appendQueue(r.queue[i]);
             }
-          }
-          
-
-          $("span#qcount").html(r.songs.length);
-
-          el = document.getElementById("songs");
-          Sortable.create(el, {
-            animation: 150,
-            
-            onStart: function(e){
-              p.update = false;
-              console.log("drag started");
-            },
-            onEnd: function(e){
-
-              var item = e.item;
-              console.log($(item).attr("id") + " moved from " + (e.oldIndex + 1) + " to " + (e.newIndex + 1));
-
-              indexOld = (e.oldIndex + 1);
-              indexNew = (e.newIndex + 1);
-
-              $.ajax({
-                url: p.api,
-                type: "POST",
-                data: { "action": "song", "type": "move", "from": indexOld, "to": indexNew },
-                success: function(r){
-                  console.log(r);
-                }
-              })
-
-              p.update = true;
-            }
-          });
-  
-        }
-  
-        // update playing progress
-        if(r.stats.time != "" && typeof r.stats.time != "undefined" && r.stats.time != null){
-  
-          $("span#time").html(r.stats.time);
-  
-          var time = r.stats.time.split("/");
-          var width;
-          if(time[1] == "0:00"){
-            width = 100;
-          }else{
-            var duration = hmsToSecondsOnly(time[1]);
-            var played = hmsToSecondsOnly(time[0]);
-            width = played / duration * 100;
-          }
-        }
-
-        $("div#player-progress-played").css("width", width + "%");
-        
-        // update settings buttons
-        {
-          if(r.stats.repeat == "on"){
-            $("span#player-repeat").find("button").attr("class", "btn btn-primary mr-1");
-          }else{
-            $("span#player-repeat").find("button").attr("class", "btn btn-secondary mr-1");
-          }
-    
-          if(r.stats.single == "on"){
-            $("span#player-single").find("button").attr("class", "btn btn-primary mr-1");
-          }else{
-            $("span#player-single").find("button").attr("class", "btn btn-secondary mr-1");
-          }
-    
-          if(r.stats.random == "on"){
-            $("span#player-random").find("button").attr("class", "btn btn-primary mr-1");
-          }else{
-            $("span#player-random").find("button").attr("class", "btn btn-secondary mr-1");
-          }
-    
-          if(r.stats.consume == "on"){
-            $("span#player-consume").find("button").attr("class", "btn btn-primary");
-          }else{
-            $("span#player-consume").find("button").attr("class", "btn btn-secondary");
-          }
-        }
-        
-  
-  
-        // show current playing song
-        if(r.stats.current != ""){
-          $("div#player-title").html(r.stats.current.endsWith(".mp3") ? r.stats.playing.current : r.stats.current);
-          if(r.stats.current.endsWith(".mp3")){
-            $("div#player-thumb").css("display", "flex");
-            $("div#player-progress-bar").css("width", "calc(100% - 150px)");
-            $("div#player-thumb").html("<img src='"+r.stats.playing.thumbnail+"'></img>");
-          }else{
-            $("div#player-thumb").css("display", "none");
-            $("div#player-progress-bar").css("width", "100%");
-            $("div#player-thumb").html("");
+          }else if(all == 2){
+            updateSongs(r);
+          }else if(all == 0){
+            updatePlayer(r);
           }
         }else{
-          $("div#player-title").html("<b>Spüd grod nix, oida.</b>");
-          $("div#player-thumb").css("display", "none");
-          $("div#player-progress-bar").css("width", "100%");
-          $("div#player-thumb").html("");
+          if(all == 1){
+            $("input#player-crossfade").val(r.stats.crossfade);
+          }
+          updatePlayer(r);
         }
+
+  
         
-  
-        // update volume on slider
-        $("input#volume").val(r.stats.volume);
-        $("span#volume-show").html(r.stats.volume + "%");
-  
-        // change play / pause button
-        $("div.sender").css("border-left", "3px solid var(--primary)");
-        $("div.sender").find("span.sender-controls").find("span.sender-play").html('<i class="fa fa-play" aria-hidden="true"></i>');
-        $("div.sender[address='"+r.stats.playing.current+"']").attr("playing", "0");
-  
-        if(r.stats.playing.playing){
-          $("span.player-control#toggle").html('<i class="fa fa-pause" aria-hidden="true"></i>');
-          $("div.sender[address='"+r.stats.playing.current+"']").css("border-left", "3px solid var(--warning)");
-          $("div.sender[address='"+r.stats.playing.current+"']").find("span.sender-controls").find("span.sender-play").html('<i class="fa fa-pause" aria-hidden="true"></i>');
-          $("div.sender[address='"+r.stats.playing.current+"']").attr("playing", "1");
-
-          $("div.song[file='"+r.stats.current+"']").css("border-left", "3px solid var(--warning)");
-          $("div.song[file='"+r.stats.current+"']").css("font-weight", "bold");
-          $("div.song[file='"+r.stats.current+"']").find("span.sender-controls").find("span.sender-play").html('<i class="fa fa-pause" aria-hidden="true"></i>');
-          $("div.song[file='"+r.stats.current+"']").attr("playing", "1");
-
-        }else{
-          $("span.player-control#toggle").html('<i class="fa fa-play" aria-hidden="true"></i>');
-        }
   
       }
     });
   }
   
 }
-setInterval(function(){
-  update();
-}, 3000);
 
+function updateSongs(r){
+  if($("input#search").val() == ""){
+    $("div#songs").html("");
+    for(var i = 0; i < r.songs.length; i++){
+      appendSong(r.songs[i]);
+    }
+  }
+  
+
+  $("span#qcount").html(r.songs.length);
+  sc = document.getElementById("songs");
+  el = document.getElementById("songs");
+  Sortable.create(el, {
+    scroll: sc,
+    animation: 150,
+    
+    onStart: function(e){
+      p.update = false;
+    },
+    onEnd: function(e){
+      var item = e.item;
+      indexOld = (e.oldIndex + 1);
+      indexNew = (e.newIndex + 1);
+      $.ajax({
+        url: p.api,
+        type: "POST",
+        data: { "action": "song", "type": "move", "from": indexOld, "to": indexNew }
+      });
+      p.update = true;
+    }
+  });
+}
+
+
+function updatePlayer(r){
+  // update playing progress
+  if(r.stats.time != "" && typeof r.stats.time != "undefined" && r.stats.time != null){
+  
+    $("span#time").html(r.stats.time);
+
+    var time = r.stats.time.split("/");
+    var width;
+    if(time[1] == "0:00"){
+      width = 100;
+    }else{
+      var duration = hmsToSecondsOnly(time[1]);
+      var played = hmsToSecondsOnly(time[0]);
+      width = played / duration * 100;
+    }
+  }
+
+  $("div#player-progress-played").css("width", width + "%");
+  
+  // update settings buttons
+  {
+    if(r.stats.repeat == "on"){
+      $("span#player-repeat").find("button").attr("class", "btn btn-primary mr-1");
+    }else{
+      $("span#player-repeat").find("button").attr("class", "btn btn-secondary mr-1");
+    }
+
+    if(r.stats.single == "on"){
+      $("span#player-single").find("button").attr("class", "btn btn-primary mr-1");
+    }else{
+      $("span#player-single").find("button").attr("class", "btn btn-secondary mr-1");
+    }
+
+    if(r.stats.random == "on"){
+      $("span#player-random").find("button").attr("class", "btn btn-primary mr-1");
+    }else{
+      $("span#player-random").find("button").attr("class", "btn btn-secondary mr-1");
+    }
+
+    if(r.stats.consume == "on"){
+      $("span#player-consume").find("button").attr("class", "btn btn-primary");
+    }else{
+      $("span#player-consume").find("button").attr("class", "btn btn-secondary");
+    }
+  }
+  
+
+
+  // show current playing song
+  if(r.stats.current != ""){
+    $("div#player-title").html(r.stats.current.endsWith(".mp3") ? r.stats.playing.current : r.stats.current);
+    if(r.stats.current.endsWith(".mp3")){
+      $("div#player-thumb").css("display", "flex");
+      $("div#player-progress-bar").css("width", "calc(100% - 150px)");
+      $("div#player-thumb").html("<img src='"+r.stats.playing.thumbnail+"'></img>");
+    }else{
+      $("div#player-thumb").css("display", "none");
+      $("div#player-progress-bar").css("width", "100%");
+      $("div#player-thumb").html("");
+    }
+  }else{
+    $("div#player-title").html("<b>Spüd grod nix, oida.</b>");
+    $("div#player-thumb").css("display", "none");
+    $("div#player-progress-bar").css("width", "100%");
+    $("div#player-thumb").html("");
+  }
+  
+
+  // update volume on slider
+  if(!$("div#player").find("span#volume:hover").length){
+    $("input#volume").val(r.stats.volume);
+    $("span#volume-show").html(r.stats.volume + "%");
+  }
+  
+
+  // change play / pause button
+  $("div.sender").css("border-left", "3px solid var(--primary)");
+  $("div.sender").find("span.sender-controls").find("span.sender-play").html('<i class="fa fa-play" aria-hidden="true"></i>');
+  $("div.sender[address='"+r.stats.playing.current+"']").attr("playing", "0");
+
+  $("div.song").css("border-left", "3px solid var(--primary)");
+  $("div.song").css("font-weight", "normal");
+  $("div.song").attr("playing", "0");
+
+  if(r.stats.playing.playing){
+    $("span.player-control#toggle").html('<i class="fa fa-pause" aria-hidden="true"></i>');
+    $("div.sender[address='"+r.stats.playing.current+"']").css("border-left", "3px solid var(--warning)");
+    $("div.sender[address='"+r.stats.playing.current+"']").find("span.sender-controls").find("span.sender-play").html('<i class="fa fa-pause" aria-hidden="true"></i>');
+    $("div.sender[address='"+r.stats.playing.current+"']").attr("playing", "1");
+
+    if(r.stats.current.endsWith(".mp3")){
+      $("div.song[file='"+r.stats.current+"']").css("border-left", "3px solid var(--warning)");
+      $("div.song[file='"+r.stats.current+"']").css("font-weight", "bold");
+      $("div.song[file='"+r.stats.current+"']").attr("playing", "1");
+    }
+    
+
+  }else{
+    $("span.player-control#toggle").html('<i class="fa fa-play" aria-hidden="true"></i>');
+  }
+}
+
+
+
+setInterval(function(){
+  update(1);
+}, 7000);
+
+setInterval(function(){
+  update(0);
+}, 1500);
 
 function fetch(url){
+
+  if(url == "" || url == "/"){
+    $("div#content").css("padding-right", "");
+  }else if(url == "/yt"){
+    $("div#content").css("padding-right", "0");
+  }
 
   $("div.sb-item").css("border-left", "5px solid transparent");
   $("a[href='"+url+"']").parent().css("border-left", "5px solid var(--light)");
@@ -357,10 +399,11 @@ function fetch(url){
   if(url == "" || url == "/"){
     $("div#content").html(`
       <div id="list-sender" class="w-49" style="margin-bottom: 100px;">
-        <div class="list-top"><h2>Sender</h2></div>
+        <div class="list-top"><h2>Sender <span id="sendercount"></span><input type="text" class="form-control" id="search" placeholder="Suchen"/></h2></div>
+        <div id="senderlist"></div>
       </div>
       <div id="list-add" class="w-49">
-        <div class="list-top"><h2>Hinzufügen</h2></div>
+        <div class="list-top"><h2>Hinzufügen<a target="_blank" style="float: right;" href="https://www.webroida.com/list.txt"><button style="text-align: center; display: flex; height: 32px; align-items: center;" class="btn btn-sm btn-dark"><i class="fa fa-external-link" aria-hidden="true"></i></button></a></h2></div>
         <form id="sender-add">
           <div>
             <input type="text" class="form-control" id="sender-name" placeholder="Name"/>
@@ -377,9 +420,35 @@ function fetch(url){
       type: "GET",
       data: { "action": "sender", "type": "get" },
       success: function(r){
+
+        $("span#sendercount").html("("+r.senders.length+")");
         for(var i = 0; i < r.senders.length; i++){
           appendSender(r.senders[i].name, r.senders[i].address);
         }
+
+        el = document.getElementById("senderlist");
+        sc = document.documentElement;
+        Sortable.create(el, {
+          scroll: sc,
+          scrollSensitivity: 60,
+          animation: 150,
+          onStart: function(e){
+            p.update = false;
+          },
+          onEnd: function(e){
+            var item = e.item;
+            indexOld = (e.oldIndex + 1);
+            indexNew = (e.newIndex + 1);
+
+            $.ajax({
+              url: p.api,
+              type: "POST",
+              data: { "action": "sender", "type": "move", "from": indexOld, "to": indexNew }
+            });
+
+            p.update = true;
+          }
+        });
       }
     });
 
@@ -411,7 +480,7 @@ function fetch(url){
   }else if(url == "/yt"){
 
     $("div#content").html(`
-      <div id="list-queue" class="w-49">
+      <div id="list-queue" class="w-50">
         <div class="list-top">
           <h2>Q (<span id='qcount'>0</span>)
             <button class="btn btn-sm btn-danger ml-2 q-btn" id="clearq">Clear</button>
@@ -422,11 +491,11 @@ function fetch(url){
         <div id="songs"></div>
       </div>
 
-      <div id="list-queue-add" class="w-49">
+      <div id="list-queue-add" class="w-50">
         <div class="list-top"><h2>Hinzufügen</h2></div>
         <div id="songs-add">
           <form id="queue-add">
-            <div><textarea class="form-control" id="url" placeholder="Suchanfrage oder URLs (ane pro Zöun)"></textarea></div>
+            <div><textarea class="form-control" id="url" placeholder="Suchanfrage oder URLs (ane pro Zöün)"></textarea></div>
             <div>
               <button type="submit" class="btn btn-dark mt-1">Ind Q damit</button>
               <span id="search-settings" class="mt-1 d-inline-block rounded bg-secondary pointer text-light float-right">
@@ -465,7 +534,7 @@ function fetch(url){
           }
         });
       }else{
-        update();
+        update(2);
       }
     }
 
@@ -477,8 +546,8 @@ function fetch(url){
         type: "POST",
         data: { "action": "queue", "type": type },
         success: function(r){
-          console.log(r);
-          update();
+          //console.log(r);
+          update(2);
         }
       });
     });
@@ -536,7 +605,7 @@ function fetch(url){
     });
 
     updateSearch();
-    update();
+    update(1);
 
   }else if(url == "/users"){
 
@@ -635,7 +704,7 @@ function fetch(url){
         type: "POST",
         data: { "action": "system", "type": "proxy", "host": host, "port": port },
         success: function(r){
-          console.log(r);
+          //console.log(r);
         }
       });
 
@@ -796,7 +865,7 @@ function appendSearch(s){
       type: "POST",
       data: { "action": "queue", "type": "delsearch", "id": id },
       success: function(r){
-        console.log(r);
+        //console.log(r);
         if(r.success){
           $(x).fadeOut(200, function(){ $(this).remove(); });
         }
@@ -836,7 +905,7 @@ function appendQueue(q){
   }
 
   $("div#progress").append(`
-    <div class="queue" id="`+q.id+`" progress="`+q.progress+`" style="`+style+`">
+    <div class="queue" id="`+q.id+`" progress="`+q.progress+`" style="`+style+`" title="`+(q.title != "" ? escapeHtml(q.title) : q.url)+`">
       <span class="queue-prio"><input `+disabled+` type="number" class="prio" value="`+q.prio+`"/></span>
       <span class="queue-title"><a target="_blank" style="`+style_a+`" href='`+q.url+`'>`+(q.title != "" ? q.title : q.url)+`</a></span>
       `+(q.progress != 3 ? '<span class="queue-delete text-danger" title="Song aus Q entfernen"><i class="fa fa-times" aria-hidden="true"></i></span>':"")+`
@@ -851,14 +920,14 @@ function appendQueue(q){
     
     var id = $(this).parent().parent().attr("id");
     var prio = $(this).val();
-    console.log("prio changed: " + prio);
+    //console.log("prio changed: " + prio);
 
     $.ajax({
       url: p.api,
       type: "POST",
       data: { "action": "queue", "type": "setprio", "id": id, "prio": prio },
       success: function(r){
-        console.log(r);
+        //console.log(r);
       }
     });
   });
@@ -908,9 +977,8 @@ function appendSong(s){
       success: function(){
         if(action == "del"){
           $(x).fadeOut(200, function(){ $(this).remove(); });
-        }else{
-          update();
         }
+        update(2);
       }
     });
   });
@@ -918,7 +986,7 @@ function appendSong(s){
 }
 
 function appendSender(name, address){
-  $("div#list-sender").append(`
+  $("div#senderlist").append(`
     <div class="sender" address="`+address+`" playing="0">
       <span>`+name+`</span>
       <span class="sender-controls">
@@ -949,7 +1017,7 @@ function appendSender(name, address){
   $("span.sender-play").on("click", function(){
     
     var sender = $(this).parent().parent();
-    console.log(sender.attr("address"));
+    //console.log(sender.attr("address"));
     $("div.sender").attr("playing", "0");
     if(sender.attr("playing") == "0"){
       $.ajax({
@@ -958,7 +1026,7 @@ function appendSender(name, address){
         data: { "action": "sender", "type": "play", "address": sender.attr("address") },
         success: function(){
           sender.attr("playing", "1");
-          update();
+          update(1);
         }
       });
     }else{
@@ -968,7 +1036,7 @@ function appendSender(name, address){
         data: { "action": "player", "type": "toggle" },
         success: function(){
           sender.attr("playing", "0");
-          update();
+          update(1);
         }
       });
     }

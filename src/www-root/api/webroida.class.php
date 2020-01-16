@@ -6,9 +6,9 @@ class Webroida{
 
   private $db;
   private $db_host = "localhost";
-  private $db_user = "webroida";
-  private $db_name = "webroida";
-  private $db_pass = "QjqXDnSBEeEShSzRag3F7bzC";
+  private $db_user;
+  private $db_name;
+  private $db_pass;
 
   public $volume;
   public $time;
@@ -17,6 +17,11 @@ class Webroida{
 
   // on construct connect to DB
   function __construct(){
+
+    $this->db_user = trim(file_get_contents("/etc/webroida/db.name"));
+    $this->db_name = trim(file_get_contents("/etc/webroida/db.name"));
+    $this->db_pass = trim(file_get_contents("/etc/webroida/db.pass"));
+
     try{
       $this->db = new PDO("mysql:host=".$this->db_host.";dbname=".$this->db_name, $this->db_user, $this->db_pass);
     }catch(PDOException $e){
@@ -53,16 +58,12 @@ class Webroida{
     }
   }
 
-
-  // return player stats
-  function update(){
-
+  function getStats(){
     $stats = array(
       "current"=>$this->current(),
       "volume"=>$this->volume(),
       "time"=>$this->time(),
-      "playing"=>$this->playing(),
-      "crossfade"=>$this->crossfade()
+      "playing"=>$this->playing()
     );
 
     $x = explode("  ", $this->status[count($this->status)-1]);
@@ -81,17 +82,81 @@ class Webroida{
       }
     }
 
-    return array("success"=>true, "msg"=>null, "stats"=>$stats, "queue"=>$this->getQueue()["queue"], "songs"=>$this->getSongs()["songs"]);
+    return $stats;
 
+  }
+
+  // return player stats
+  function update($all = 0){
+
+    /*
+      0: player only
+      1: everything
+      2: songs only
+    */
+
+    
+
+    if($all == 1){
+
+      $stats = $this->getStats();
+      $stats["crossfade"] = $this->crossfade();
+      $stats["cpu"] = round((float) trim(shell_exec("ps -A -o pcpu | tail -n+2 | paste -sd+ | bc")));
+
+      $queue = $this->getQueue()["queue"];
+      $songs = $this->getSongs()["songs"];
+
+
+    }elseif($all == 2){
+
+      $stats = array();
+      $queue = array();
+      $songs = $this->getSongs()["songs"];
+
+    }elseif($all == 0){
+      $stats = $this->getStats();
+      $queue = array();
+      $songs = array();
+    }
+
+    return array("success"=>true, "msg"=>null, "stats"=>$stats, "queue"=>$queue, "songs"=>$songs);
+
+  }
+
+  // function to search senders
+  function searchSender($keyword){
+    $senders = array();
+    $stmt = $this->db->prepare("SELECT * FROM senders WHERE name LIKE :keyword");
+    if($stmt->execute(array(":keyword" => "%".$keyword."%"))){
+      while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
+        array_push($senders, array("id"=>$row["id"], "name"=>$row["name"], "address"=>$row["address"]));
+      }
+      return array("success" => true, "msg" => null, "senders" => $senders);
+    }else{
+      return array("success" => false, "msg" => "DB Error");
+    }
   }
 
   // add sender to DB and playlist
   function addSender($name, $address){
     if(!empty($name) and !empty($address)){
-      $stmt = $this->db->prepare("INSERT INTO senders (name, address) VALUES (:name, :address)");
-      if($stmt->execute(array(":name"=>$name, ":address"=>$address))){
+
+      // get last id of table because id = line in file
+      $stmt = $this->db->prepare("SELECT id FROM senders ORDER BY id DESC LIMIT 1");
+      $stmt->execute();
+      while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
+        $lastId = $row["id"];
+      }
+
+      $stmt = $this->db->prepare("INSERT INTO senders (id, name, address) VALUES (:id, :name, :address)");
+      if($stmt->execute(array(":id" => $lastId + 1, ":name"=>$name, ":address"=>$address))){
         if(file_put_contents("/mpd/playlists/senders.m3u", $address."\n", FILE_APPEND)){
-          $this->loadPlaylist("senders");
+
+          $current = $this->current();
+          if($this->playing()["playing"] and !endswith($current, ".mp3")){
+            $this->add($address);
+          }
+          
           return array("success"=>true, "msg"=>null);
         }else{
           return array("success"=>false, "msg"=>"Error writing playlist");
@@ -121,7 +186,6 @@ class Webroida{
   // function to remove a sender
   function delSender($address){
   
-
     // delete from DB
     $stmt = $this->db->prepare("DELETE FROM senders WHERE address = :address");
     $stmt->execute(array(":address"=>$address));
@@ -139,7 +203,6 @@ class Webroida{
     foreach($this->getSender()["senders"] as $sender){
       file_put_contents("/mpd/playlists/senders.m3u", $sender["address"]."\n", FILE_APPEND);
     }
-
   }
 
 
@@ -147,7 +210,6 @@ class Webroida{
   // function to clear the Q
   function clearQueue(){
     shell_exec("mpc clear");
-    
 
     $files = glob("/mpd/music/*");
     foreach($files as $file){
@@ -156,15 +218,12 @@ class Webroida{
       }
     }
 
-    if(file_put_contents("/mpd/playlists/songs.m3u", "")){
-      $stmt = $this->db->prepare("TRUNCATE songs");
-      if($stmt->execute()){
-        return array("success" => true, "msg" => null);
-      }else{
-        return array("success" => false, "msg" => "DB Error");
-      }
+    file_put_contents("/mpd/playlists/songs.m3u", "");
+    $stmt = $this->db->prepare("TRUNCATE songs");
+    if($stmt->execute()){
+      return array("success" => true, "msg" => null);
     }else{
-      return array("success" => false, "msg" => "File error");
+      return array("success" => false, "msg" => "DB Error");
     }
   }
 
@@ -172,7 +231,6 @@ class Webroida{
 
   // ok so here this shit is getting serious (youtube support)
   function addQueue($user, $url){
-
 
     $urls = explode("\n", trim($url));
     $title = "";
@@ -245,9 +303,7 @@ class Webroida{
     }else{
       return array("success" => false, "msg" => "Invalid prio");
     }
-   
   }
-
 
 
   // function to get songs
@@ -275,7 +331,6 @@ class Webroida{
     $this->loadPlaylist("songs");
     //error_log($this->playlist());
     $line = findLine($this->playlist(), $file);
-    error_log(json_encode($this->playlist()));
     if($line){
       shell_exec("mpc play ".$line);
     }
@@ -297,64 +352,110 @@ class Webroida{
   }
 
 
-  // function to move a song
-  function moveSong($from, $to){
-    if(is_numeric($from) and is_numeric($to)){
 
-      // now move song
-      $current = $this->current();
-      if(endswith($current, ".mp3")){
-        // move the song in playlist
-        shell_exec("mpc move ".$from." ".$to);
-        $playlist = explode("\n", $this->playlist());
-      }else{
-        $playlist = array_filter(explode("\n", moveLine("/mpd/playlists/songs.m3u", $from, $to)));
-      }
+  function move($type, $src, $dst){
+    
+    if($type == "song"){
+      $table = "songs";
+    }elseif($type == "sender"){
+      $table = "senders";
+    }else{
+      return false;
+    }
+
+    if(is_numeric($src) and is_numeric($dst)){
+
+      error_log("SRC: ".$src." | DST: ".$dst." | TYPE: ".$type);
 
       // temporary save the DB in an array
-      $songs = array();
-      $stmt = $this->db->prepare("SELECT * FROM songs");
-      $stmt->execute();
-      while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
-        $file = $row["file"];
-        $songs[$file] = $row;
+      if($type == "song"){
+        $items = array();
+        $stmt = $this->db->prepare("SELECT * FROM songs");
+        $stmt->execute();
+        while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
+          $file = $row["file"];
+          $items[$file] = $row;
+        }
+      }elseif($type == "sender"){
+        $items = array();
+        $stmt = $this->db->prepare("SELECT * FROM senders");
+        $stmt->execute();
+        while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
+          $address = $row["address"];
+          $items[$address] = $row;
+        }
+      }
+      
+
+      
+      // UPDATE INSTEAD OF TRUNCATE and DELETE
+      if($src > $dst){
+        $sql_update = "UPDATE ".$table." SET id = id + 1 WHERE id < :src AND id >= :dst ORDER BY id DESC";
+      }elseif($src < $dst){
+        $sql_update = "UPDATE ".$table." SET id = id - 1 WHERE id > :src AND id <= :dst ORDER BY id ASC";
+      }else{
+        return array("success" => false, "msg" => "src and dst are the same");
       }
 
-      
-      
-      
-      // delete old DB table
-      $stmt = $this->db->prepare("TRUNCATE songs");
-      $stmt->execute();
+      // temp save src
+      error_log("temp save src ".$src);
+      $stmt = $this->db->prepare("SELECT * FROM ".$table." WHERE id = :src");
+      if($stmt->execute(array(":src" => $src))){
+        if($stmt->rowCount() > 0){
+          while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
+            $src_ = $row;
+          }
 
-      // and insert everything in the right order
-      $handle = fopen("/mpd/playlists/songs.m3u", "w");
-      ftruncate($handle, 0);
+          error_log("delete src ".$src);
+          // delete src
+          $stmt = $this->db->prepare("DELETE FROM ".$table." WHERE id = :src");
+          if($stmt->execute(array(":src" => $src))){
 
-      $stmt = $this->db->prepare("INSERT INTO songs (title, url, file, duration, thumbnail) VALUES (:title, :url, :file, :duration, :thumbnail)");
-      foreach($playlist as $song){
+            error_log("update all");
+            // update all records that are < src and >= dst to id + 1
+            $stmt = $this->db->prepare($sql_update);
+            if($stmt->execute(array(":src" => $src, ":dst" => $dst))){
 
-        // $song = str_replace("file:///mpd/music/", "", $song);
-        
-        fwrite($handle, $song."\n");
+              // now insert SRC to DST
+              error_log("insert ".$src." to ".$dst);
 
-        $title = $songs[$song]["title"];
-        $url = $songs[$song]["url"];
-        $file = $songs[$song]["file"];
-        $duration = $songs[$song]["duration"];
-        $thumbnail = $songs[$song]["thumbnail"];
+              if($type == "song"){
+                $sql_insert = "INSERT INTO songs (id, title, url, file, duration, thumbnail) VALUES (:id, :title, :url, :file, :duration, :thumbnail)";
+                $params = array(":id" => $dst, ":title" => $src_["title"], ":url" => $src_["url"], ":file" => $src_["file"], ":duration" => $src_["duration"], ":thumbnail" => $src_["thumbnail"]);
+              }elseif($type == "sender"){
+                $sql_insert = "INSERT INTO senders (id, name, address) VALUES (:id, :name, :address)";
+                $params = array(":id" => $dst, ":name"=>$src_["name"], ":address"=>$src_["address"]);
+              }
+              
 
-        $stmt->execute(array(
-          ":title"=>$title,
-          ":url"=>$url,
-          ":file"=>$file,
-          ":duration"=>$duration,
-          ":thumbnail"=>$thumbnail
-        ));
+              $stmt = $this->db->prepare($sql_insert);
+              if($stmt->execute($params)){
+
+                // now update the file
+                if(endsWith($this->current(), ".mp3") or $this->playing()["playing"]){
+                  shell_exec("mpc move ".$src." ".$dst);
+                  $playlist = $this->playlist();
+                }else{
+                  $playlist = implode("\n", array_filter(explode("\n", moveLine("/mpd/playlists/".$table.".m3u", $src, $dst))));
+                }                
+
+                file_put_contents("/mpd/playlists/".$table.".m3u", $playlist);
+
+              }else{
+                error_log("DB ERROR 1".json_encode($this->db->errorInfo()));
+              }
+            }else{
+              error_log("DB ERROR 2".json_encode($this->db->errorInfo()));
+            }
+          }else{
+            error_log("DB ERROR 3".json_encode($this->db->errorInfo()));
+          }
+        }else{
+          error_log("ROWCOUNT IS ZERO");
+        }
+      }else{
+        error_log("DB ERROR 4".json_encode($this->db->errorInfo()));
       }
-
-      fclose($handle);
-
     }
   }
 
@@ -379,6 +480,7 @@ class Webroida{
     while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
       $file = $row["file"];
       $songs[$file] = $row;
+      //file_put_contents("test.log", $file."\n",FILE_APPEND);
     }
 
     
@@ -396,51 +498,70 @@ class Webroida{
 
       // $song = str_replace("file:///mpd/music/", "", $song);
 
-      fwrite($handle, $song."\n");
-      
-      $title = $songs[$song]["title"];
-      $url = $songs[$song]["url"];
-      $file = $songs[$song]["file"];
-      $duration = $songs[$song]["duration"];
-      $thumbnail = $songs[$song]["thumbnail"];
+      if(!empty($song)){
+        fwrite($handle, $song."\n");
+        $title = $songs[$song]["title"];
+        $url = $songs[$song]["url"];
+        $file = $songs[$song]["file"];
+        $duration = $songs[$song]["duration"];
+        $thumbnail = $songs[$song]["thumbnail"];
 
-      $stmt->execute(array(
-        ":title"=>$title,
-        ":url"=>$url,
-        ":file"=>$file,
-        ":duration"=>$duration,
-        ":thumbnail"=>$thumbnail
-      ));
+        $stmt->execute(array(
+          ":title"=>$title,
+          ":url"=>$url,
+          ":file"=>$file,
+          ":duration"=>$duration,
+          ":thumbnail"=>$thumbnail
+        ));
+      }
+      
+      
     }
 
     fclose($handle);
 
-    if(endswith($current, ".mp3")){
+    /*if(endswith($current, ".mp3")){
       $this->loadPlaylist("songs");
       $this->playSong(getLine($this->playlist(), 1));
-    }    
+    }*/   
   }
 
   // function to remove song
   function delSong($file){
 
+    
 
-    // delete from DB
-    $stmt = $this->db->prepare("DELETE FROM songs WHERE file = :file");
+    // get id of file
+    $stmt = $this->db->prepare("SELECT id FROM songs WHERE file = :file");
     $stmt->execute(array(":file"=>$file));
+    while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
+      $id = $row["id"];
 
+      error_log("deleting song ".$file." | ".$id);
 
-    // get pos in playlist
-    $pos = findLine($this->playlist(), $file);
-    if($pos){
-      // delete from playlist
-      shell_exec("mpc del ".$pos);
-    }
+      // delete from DB
+      $stmt = $this->db->prepare("DELETE FROM songs WHERE id = :del");
+      if($stmt->execute(array(":del"=>$id))){
 
-    // save to playlist file
-    file_put_contents("/mpd/playlists/songs.m3u", "");
-    foreach($this->getSongs()["songs"] as $song){
-      file_put_contents("/mpd/playlists/songs.m3u", $song["file"]."\n", FILE_APPEND);
+        error_log("update id > ".$id);
+
+        // update ids
+        $stmt = $this->db->prepare("UPDATE songs SET id = id - 1 WHERE id > :del ORDER BY id ASC");
+        $stmt->execute(array(":del"=>$id));
+
+        // get pos in playlist
+        $pos = findLine($this->playlist(), $file);
+        if($pos){
+          // delete from playlist
+          shell_exec("mpc del ".$pos);
+        }
+
+        // save to playlist file
+        file_put_contents("/mpd/playlists/songs.m3u", "");
+        foreach($this->getSongs()["songs"] as $song){
+          file_put_contents("/mpd/playlists/songs.m3u", $song["file"]."\n", FILE_APPEND);
+        }
+      }
     }
   }
 
@@ -527,7 +648,10 @@ class Webroida{
 
       // this is a temporary playlist to get the stream URL because mpc always writes the radios description (Kronehit bla bla) into the playlist file.
       // mpc current also gives back the channels description
-      unlink("/mpd/playlists/temp.m3u");
+      if(file_exists("/mpd/playlists/temp.m3u")){
+        unlink("/mpd/playlists/temp.m3u");
+      }
+      $this->updateDB();
       $this->save("temp");
       $playlist = file_get_contents("/mpd/playlists/temp.m3u");
       $current = $current_raw = getLine($playlist, (int) str_replace("#" , "", explode("/", $states[1])[0]));

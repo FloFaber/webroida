@@ -49,7 +49,7 @@ if(isset($_REQUEST["action"]) and isset($_REQUEST["type"])){
       }elseif($type == "time"){
         $r = $wr->time();
       }elseif($type == "update"){
-        $r = $wr->update();
+        $r = $wr->update($_REQUEST["all"]);
         $r["user"] = array(
           "name" => $user->name,
           "admin" => $user->admin
@@ -92,6 +92,14 @@ if(isset($_REQUEST["action"]) and isset($_REQUEST["type"])){
       }elseif($type == "delete"){
         $address = $_REQUEST["address"];
         $r = $wr->delSender($address);
+      }elseif($type == "move"){
+        if(isset($_REQUEST["from"]) and isset($_REQUEST["to"])){
+          $from = $_REQUEST["from"];
+          $to = $_REQUEST["to"];
+          $r = $wr->move("sender", $from, $to);
+        }
+      }elseif($type == "search"){
+        $r = $wr->searchSender($_REQUEST["keyword"]);
       }
   
   
@@ -139,8 +147,7 @@ if(isset($_REQUEST["action"]) and isset($_REQUEST["type"])){
           $from = $_REQUEST["from"];
           $to = $_REQUEST["to"];
 
-          $r = $wr->moveSong($from, $to);
-
+          $r = $wr->move("song", $from, $to);
         }
       }elseif($type == "search"){
         $r = $wr->searchSong($_REQUEST["keyword"]);

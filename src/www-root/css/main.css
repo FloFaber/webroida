@@ -87,6 +87,7 @@ div.sb-item{
 
 /* PLAYER */
 div#player{
+  box-shadow: 0px -2px 3px 0px var(--grey-dark);
   height: 75px;
   width: calc(100% - 200px);
   background-color: var(--grey-dark);
@@ -214,10 +215,10 @@ div.list-top{
 /* SENDERS */
 
 div.sender{
-  padding: 15px;
-  border-radius: 3px;
+  cursor: move;
+  padding: 7px 15px;
   border-left: 3px solid var(--primary);
-  margin-top: 15px;
+  margin-top: 2px;
 }
 
 form#sender-add{
@@ -243,12 +244,18 @@ span.sender-controls span{
 div#songs, div#songs-add{
   height: calc(100vh - 158px);
   overflow-y: scroll;
-  padding-bottom: 50px;
   padding-right: 15px;
 }
 
 div#songs{
   margin-right: 15px;
+}
+
+div#songs:after {
+  content: "";
+  display: block;
+  height: 50px;
+  width: 100%;
 }
 
 textarea#url{
@@ -270,11 +277,10 @@ input#search{
 }
 
 div.queue{
-  padding: 15px;
+  padding: 7px 15px;
   padding-right: 3px;
   border-left: 3px solid var(--primary);
-  margin-top: 15px;
-  border-radius: 3px;
+  margin-top: 2px;
   align-items: center;
 }
 
@@ -333,6 +339,13 @@ span.song-title{
 div#search-toggle{
   margin-top: 40px;
   cursor: pointer;
+  margin-bottom: 15px;
+}
+
+div#search-toggle a{
+  padding: 3px;
+  border-bottom: 2px solid var(--dark);
+  padding-bottom: 0;
 }
 
 div#search{
@@ -340,10 +353,9 @@ div#search{
 }
 
 div.search{
-  padding: 3px;
-  border-left: 2px solid var(--gray-dark);
-  border-radius: 2px;
-  margin-top: 10px;
+  padding: 7px 15px;
+  border-left: 3px solid var(--gray-dark);
+  margin-top: 2px;
 }
 
 span.search-title{
@@ -423,4 +435,18 @@ span#crossfade-info{
   border-radius: 3px;
   padding: 2px;
   display: none;
+}
+
+div#cpu{
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  background-color: var(--dark);
+  width: 100%;
+}
+
+div#cpu-prog{
+  padding: 5px;
+  font-weight: bold;
+  max-width: 100%;
 }

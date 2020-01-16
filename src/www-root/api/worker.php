@@ -56,13 +56,39 @@ while(true){
     
           echo "start downloading (videoid: ".$videoid.")\n";
           // now start downloading
-          exec("youtube-dl ".$proxy." --extract-audio --audio-format mp3 --postprocessor-args \"-threads 4\" --no-playlist -o \"/mpd/music/%(id)s.%(ext)s\" \"".$url."\"", $out, $std);
-          if($std == 0){
+
+          $descriptorspec = array(
+            1 => array("pipe", "w"),  // stdout
+            2 => array("pipe", "w")   // stderr
+         );
+
+         unset($pipes);
+
+         $process = proc_open("youtube-dl ".$proxy." --extract-audio --audio-format mp3 --postprocessor-args \"-threads 4\" --no-playlist -o \"/mpd/music/%(id)s.%(ext)s\" \"".$url."\"", $descriptorspec, $pipes, null, null);
+         if(is_resource($process)){
+          $stdout = stream_get_contents($pipes[1]);
+          fclose($pipes[1]);
+          
+          $stderr = stream_get_contents($pipes[2]);
+          fclose($pipes[2]);
+
+          $return = proc_close($process);
+
+          if($return == 0){
             // success
             echo "finished downloading (videoid: ".$videoid.")\n";
             // add into songs table
-            $stmt_sec = $db->prepare("INSERT INTO songs (title, url, file, duration, thumbnail) VALUES (:title, :url, :file, :duration, :thumbnail)");
+
+            // get id from latest inserted song
+            $stmt_sec = $db->prepare("SELECT id FROM songs ORDER BY id DESC LIMIT 1");
+            $stmt_sec->execute();
+            while($row_sec = $stmt_sec->fetch(PDO::FETCH_ASSOC)){
+              $lastId = $row_sec["id"];
+            }
+
+            $stmt_sec = $db->prepare("INSERT INTO songs (id, title, url, file, duration, thumbnail) VALUES (:id, :title, :url, :file, :duration, :thumbnail)");
             if($stmt_sec->execute(array(
+              ":id"=>$lastId + 1,
               ":title"=>$title,
               ":url"=>$url,
               ":file"=>$videoid.".mp3",
@@ -76,21 +102,20 @@ while(true){
                 $wr->add($videoid.".mp3");
               }
             }
-    
+
             $stmt_sec = $db->prepare("DELETE FROM queue WHERE id = :id");
             $stmt_sec->execute(array(":id"=>$id));
-
-            
-
-    
           }else{
-            echo "\nERROR:\n".$out[count($out)-1]."\n";
-            $stmt_sec = $db->prepare("UPDATE queue SET progress = 1, title = :title WHERE id = :id");
-            $stmt_sec->execute(array(":title"=>"ERROR: ".json_encode($out), ":id"=>$id));
+            echo "this is an error on ID ".$id;
+            echo "\nERROR: ".json_encode($stderr)."\n";
+            $stmt_sec = $db->prepare("UPDATE queue SET progress = 2, title = :title WHERE id = :id");
+            $stmt_sec->execute(array(":title"=>"ERROR: ".json_encode($stderr), ":id"=>$id));
           }
+
         }
       }
     }
+  }
   }elseif($argv[1] == "get"){
     // go and get title, duration, etc...
     $stmt = $db->prepare("SELECT * FROM queue WHERE title NOT LIKE 'ERROR:%' AND progress = 0 AND title = '' AND duration = '' ORDER BY prio DESC, id LIMIT 1");
@@ -164,5 +189,4 @@ while(true){
   }
 
   sleep(5);
-  
 }

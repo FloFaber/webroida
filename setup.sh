@@ -52,7 +52,7 @@ else
   apt install mariadb-server mariadb-client -y
   apt install mpd mpc -y
   apt install ffmpeg -y
-  apt install sudo unzip screen -y
+  apt install sudo unzip screen bc -y
 
   # generate random password for DB
   db_user="'webroida'@'localhost'"
